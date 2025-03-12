@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wingo - Predictable Random Number Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #3b8ea5; /* Teal background from wireframe */
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .number-display {
+            font-size: 3rem;
+            font-weight: 700;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: linear-gradient(145deg, #318296, #3a99b4);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .number-display.reveal {
+            transform: scale(1.05);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-primary {
+            background-color: #3b8ea5;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2d7d94;
+            transform: translateY(-2px);
+        }
+        
+        .mode-btn.active {
+            background-color: #3b8ea5;
+            color: white;
+        }
+        
+        .number-history-item {
+            transition: all 0.3s ease;
+        }
+        
+        .number-history-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .result-animation {
+            animation: popIn 0.5s ease;
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .file-drop-area {
+            position: relative;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        .file-drop-area:hover, .file-drop-area.active {
+            border-color: #3b8ea5;
+            background-color: rgba(59, 142, 165, 0.05);
+        }
+        
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .screenshot-preview {
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* For mobile responsiveness */
+        @media (max-width: 640px) {
+            .number-display {
+                font-size: 2.5rem;
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8">
+        <!-- Top Navigation -->
+        <header class="flex justify-between items-center mb-8">
+            <div class="text-white text-2xl font-bold">
+                <i class="bi bi-dice-5-fill mr-2"></i>
+                Wingo
+            </div>
+            <div class="flex space-x-2">
+                <button id="screenshotModeBtn" class="bg-white text-gray-800 px-4 py-2 rounded-full flex items-center">
+                    <i class="bi bi-camera mr-2"></i>
+                    Screenshot
+                </button>
+                <button id="statsBtn" class="bg-white text-gray-800 px-4 py-2 rounded-full flex items-center">
+                    <i class="bi bi-graph-up mr-2"></i>
+                    Stats
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Game Container -->
+        <div class="game-container p-6 max-w-lg mx-auto">
+            <!-- Game Mode Selection -->
+            <div class="flex justify-center gap-2 mb-6">
+                <button class="mode-btn px-4 py-2 rounded-md text-sm font-medium active" data-mode="classic">Classic</button>
+                <button class="mode-btn px-4 py-2 rounded-md text-sm font-medium" data-mode="challenge">Challenge</button>
+                <button class="mode-btn px-4 py-2 rounded-md text-sm font-medium" data-mode="trend">Trend</button>
+            </div>
+
+            <!-- Game Display -->
+            <div id="gameDisplay">
+                <div class="text-center mb-4">
+                    <h2 class="text-xl font-semibold mb-1">Guess the number</h2>
+                    <p class="text-gray-600" id="rangeInfo">Between 1 and 100</p>
+                </div>
+
+                <!-- Number Display -->
+                <div class="number-display mb-6" id="numberDisplay">?</div>
+
+                <!-- Input Area -->
+                <div class="mb-6">
+                    <label for="userGuess" class="block text-gray-700 mb-2">Your Guess:</label>
+                    <div class="flex gap-2">
+                        <input 
+                            type="number" 
+                            id="userGuess" 
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            placeholder="Enter a number..."
+                            min="1"
+                            max="100">
+                        <button id="submitGuessBtn" class="btn-primary text-white px-6 py-3 rounded-lg font-medium">
+                            Submit
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Message -->
+                <div id="resultMessage" class="text-center mb-6 hidden result-animation">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+
+                <!-- Difficulty Selector -->
+                <div class="mb-6">
+                    <label for="difficultyRange" class="block text-gray-700 mb-2">Difficulty (Number Range)</label>
+                    <input 
+                        type="range" 
+                        id="difficultyRange" 
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        min="10" 
+                        max="500" 
+                        value="100"
+                        step="10">
+                    <div class="flex justify-between text-xs text-gray-600 mt-1">
+                        <span>Easy (1-10)</span>
+                        <span>Medium (1-100)</span>
+                        <span>Hard (1-500)</span>
+                    </div>
+                </div>
+
+                <!-- Recent Numbers -->
+                <div>
+                    <h3 class="font-semibold mb-2">Recent Numbers:</h3>
+                    <div id="numberHistory" class="grid grid-cols-5 gap-2">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screenshot Mode Screen (Hidden by default) -->
+            <div id="screenshotScreen" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold">Screenshot Prediction</h2>
+                    <button id="backFromScreenshotBtn" class="text-blue-600">
+                        <i class="bi bi-arrow-left mr-1"></i> Back
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="text-gray-600 mb-4">Upload a screenshot of your Wingo game and we'll predict the next number!</p>
+                    
+                    <div class="file-drop-area p-8 text-center mb-4">
+                        <input type="file" id="screenshotUpload" accept="image/*" class="file-input">
+                        <div class="file-message">
+                            <i class="bi bi-cloud-arrow-up text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-500">Drag & drop your screenshot here or click to browse</p>
+                        </div>
+                    </div>
+                    
+                    <div id="screenshotPreviewContainer" class="hidden mb-6">
+                        <h3 class="font-semibold mb-2">Your Screenshot:</h3>
+                        <div class="flex justify-center">
+                            <img id="screenshotPreview" class="screenshot-preview mb-4" src="" alt="Screenshot preview">
+                        </div>
+                        <button id="analyzeScreenshotBtn" class="btn-primary text-white px-6 py-3 rounded-lg font-medium w-full">
+                            Analyze Screenshot
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="predictionResult" class="hidden">
+                    <h3 class="font-semibold mb-4">Prediction Result:</h3>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="text-center mb-3">
+                            <p class="text-gray-600 mb-2">We predict the next number to be:</p>
+                            <div class="number-display mx-auto w-24 h-24 mb-2" id="predictedNumber">?</div>
+                        </div>
+                        <div id="predictionAnalysis" class="text-sm text-gray-700">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button id="tryAgainBtn" class="flex-1 border border-gray-300 bg-white text-gray-800 px-4 py-3 rounded-lg font-medium">
+                            Try Another Screenshot
+                        </button>
+                        <button id="usePredictionBtn" class="flex-1 btn-primary text-white px-4 py-3 rounded-lg font-medium">
+                            Use This Prediction
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Screen (Hidden by default) -->
+            <div id="statsScreen" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold">Your Statistics</h2>
+                    <button id="backToGameBtn" class="text-blue-600">
+                        <i class="bi bi-arrow-left mr-1"></i> Back
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-100 rounded-lg p-4 text-center">
+                        <p class="text-gray-600 text-sm">Total Guesses</p>
+                        <h3 class="text-2xl font-bold" id="totalGuesses">0</h3>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-4 text-center">
+                        <p class="text-gray-600 text-sm">Correct Guesses</p>
+                        <h3 class="text-2xl font-bold" id="correctGuesses">0</h3>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-4 text-center">
+                        <p class="text-gray-600 text-sm">Accuracy</p>
+                        <h3 class="text-2xl font-bold" id="accuracyRate">0%</h3>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-4 text-center">
+                        <p class="text-gray-600 text-sm">Current Streak</p>
+                        <h3 class="text-2xl font-bold" id="currentStreak">0</h3>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="font-semibold mb-2">Screenshot Prediction Accuracy</h3>
+                    <div id="screenshotAccuracy" class="bg-gray-100 rounded-lg p-4 flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Predictions Made</p>
+                            <p class="font-medium" id="totalScreenshotPredictions">0</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Accuracy Rate</p>
+                            <p class="font-medium" id="screenshotAccuracyRate">0%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="font-semibold mb-2">Guess Distribution</h3>
+                    <div id="guessDistribution" class="space-y-2">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-2">Prediction History</h3>
+                    <div id="predictionHistory" class="space-y-2">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state variables
+        let gameState = {
+            currentMode: 'classic',
+            currentNumber: null,
+            maxRange: 100,
+            numberHistory: [],
+            stats: {
+                totalGuesses: 0,
+                correctGuesses: 0,
+                currentStreak: 0,
+                longestStreak: 0,
+                predictionHistory: [],
+                screenshotPredictions: {
+                    total: 0,
+                    correct: 0,
+                    history: []
+                }
+            }
+        };
+
+        // DOM Elements
+        const numberDisplay = document.getElementById('numberDisplay');
+        const userGuessInput = document.getElementById('userGuess');
+        const submitGuessBtn = document.getElementById('submitGuessBtn');
+        const resultMessage = document.getElementById('resultMessage');
+        const difficultyRange = document.getElementById('difficultyRange');
+        const numberHistory = document.getElementById('numberHistory');
+        const rangeInfo = document.getElementById('rangeInfo');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        const statsBtn = document.getElementById('statsBtn');
+        const backToGameBtn = document.getElementById('backToGameBtn');
+        const gameDisplay = document.getElementById('gameDisplay');
+        const statsScreen = document.getElementById('statsScreen');
+
+        // Screenshot mode elements
+        const screenshotModeBtn = document.getElementById('screenshotModeBtn');
+        const screenshotScreen = document.getElementById('screenshotScreen');
+        const backFromScreenshotBtn = document.getElementById('backFromScreenshotBtn');
+        const screenshotUpload = document.getElementById('screenshotUpload');
+        const screenshotPreviewContainer = document.getElementById('screenshotPreviewContainer');
+        const screenshotPreview = document.getElementById('screenshotPreview');
+        const analyzeScreenshotBtn = document.getElementById('analyzeScreenshotBtn');
+        const predictionResult = document.getElementById('predictionResult');
+        const predictedNumber = document.getElementById('predictedNumber');
+        const predictionAnalysis = document.getElementById('predictionAnalysis');
+        const tryAgainBtn = document.getElementById('tryAgainBtn');
+        const usePredictionBtn = document.getElementById('usePredictionBtn');
+
+        // Stats elements
+        const totalGuessesEl = document.getElementById('totalGuesses');
+        const correctGuessesEl = document.getElementById('correctGuesses');
+        const accuracyRateEl = document.getElementById('accuracyRate');
+        const currentStreakEl = document.getElementById('currentStreak');
+        const totalScreenshotPredictionsEl = document.getElementById('totalScreenshotPredictions');
+        const screenshotAccuracyRateEl = document.getElementById('screenshotAccuracyRate');
+        const guessDistributionEl = document.getElementById('guessDistribution');
+        const predictionHistoryEl = document.getElementById('predictionHistory');
+
+        // Initialize the game
+        function initGame() {
+            // Set up event listeners
+            submitGuessBtn.addEventListener('click', handleGuess);
+            difficultyRange.addEventListener('input', updateDifficulty);
+            modeBtns.forEach(btn => {
+                btn.addEventListener('click', () => changeGameMode(btn.dataset.mode));
+            });
+            statsBtn.addEventListener('click', showStats);
+            backToGameBtn.addEventListener('click', hideStats);
+            
+            // Screenshot mode event listeners
+            screenshotModeBtn.addEventListener('click', showScreenshotMode);
+            backFromScreenshotBtn.addEventListener('click', hideScreenshotMode);
+            screenshotUpload.addEventListener('change', handleScreenshotUpload);
+            analyzeScreenshotBtn.addEventListener('click', analyzeScreenshot);
+            tryAgainBtn.addEventListener('click', resetScreenshotUpload);
+            usePredictionBtn.addEventListener('click', usePrediction);
+            
+            // File drop area event listeners
+            const fileDropArea = document.querySelector('.file-drop-area');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, () => fileDropArea.classList.add('active'), false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileDropArea.addEventListener(eventName, () => fileDropArea.classList.remove('active'), false);
+            });
+            
+            fileDropArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+            
+            function handleFiles(files) {
+                if (files.length) {
+                    const file = files[0];
+                    if (file.type.match('image.*')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            screenshotPreview.src = e.target.result;
+                            screenshotPreviewContainer.classList.remove('hidden');
+                            predictionResult.classList.add('hidden');
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            }
+            
+            // Generate initial random number
+            generateNewNumber();
+            
+            // Initialize user interface
+            updateRangeInfo();
+            updateNumberHistory();
+            
+            // Load saved stats if available
+            loadGameState();
+        }
+
+        // Generate a new "predictable" random number
+        function generateNewNumber() {
+            let baseRandom = Math.random();
+            
+            // Make the number feel more "predictable" by influencing it based on user behavior
+            if (gameState.numberHistory.length > 0) {
+                // Add some bias based on history
+                const lastNumber = gameState.numberHistory[0];
+                const userTendency = getUserTendency();
+                
+                // Adjust randomness based on user's prediction patterns
+                baseRandom = baseRandom * 0.7 + (lastNumber / gameState.maxRange) * 0.2 + userTendency * 0.1;
+                
+                // Keep it in 0-1 range
+                baseRandom = Math.min(Math.max(baseRandom, 0), 0.999);
+            }
+            
+            // Calculate final number based on current range
+            gameState.currentNumber = Math.floor(baseRandom * gameState.maxRange) + 1;
+        }
+
+        // Analyze user guessing tendencies (returns value between 0-1)
+        function getUserTendency() {
+            if (gameState.stats.predictionHistory.length < 3) return 0.5;
+            
+            // Get last few predictions
+            const recentPredictions = gameState.stats.predictionHistory.slice(0, 5);
+            
+            // Calculate if user tends to guess high or low
+            let highCount = 0;
+            let totalValid = 0;
+            
+            recentPredictions.forEach(prediction => {
+                if (prediction.guess && prediction.actual) {
+                    totalValid++;
+                    if (prediction.guess > prediction.actual) {
+                        highCount++;
+                    }
+                }
+            });
+            
+            if (totalValid === 0) return 0.5;
+            
+            // Return tendency (0 means always guesses low, 1 means always guesses high)
+            return highCount / totalValid;
+        }
+
+        // Handle user guess
+        function handleGuess() {
+            const userGuess = parseInt(userGuessInput.value);
+            
+            if (isNaN(userGuess) || userGuess < 1 || userGuess > gameState.maxRange) {
+                showResultMessage(`Please enter a number between 1 and ${gameState.maxRange}`, 'warning');
+                return;
+            }
+            
+            // Reveal the number
+            revealNumber();
+            
+            // Check if guess is correct
+            const isCorrect = userGuess === gameState.currentNumber;
+            
+            // Update stats
+            updateStats(userGuess, gameState.currentNumber, isCorrect);
+            
+            // Show appropriate message
+            if (isCorrect) {
+                showResultMessage('Correct! You guessed it right!', 'success');
+            } else {
+                const message = userGuess > gameState.currentNumber 
+                    ? `Too high! The number was ${gameState.currentNumber}.` 
+                    : `Too low! The number was ${gameState.currentNumber}.`;
+                showResultMessage(message, 'error');
+            }
+            
+            // Add to history
+            gameState.numberHistory.unshift(gameState.currentNumber);
+            if (gameState.numberHistory.length > 10) {
+                gameState.numberHistory.pop();
+            }
+            updateNumberHistory();
+            
+            // Generate new number for next round
+            generateNewNumber();
+            
+            // Reset input
+            userGuessInput.value = '';
+            
+            // Save game state
+            saveGameState();
+            
+            // Implement Challenge mode logic
+            if (gameState.currentMode === 'challenge' && isCorrect) {
+                // Increase difficulty for next round
+                const newRange = Math.min(gameState.maxRange + 50, 500);
+                difficultyRange.value = newRange;
+                updateDifficulty();
+                showResultMessage('Level up! Range increased for the next round.', 'success');
+            }
+            
+            // Hide the number after some time in certain modes
+            setTimeout(() => {
+                numberDisplay.textContent = '?';
+            }, 2000);
+        }
+
+        // Reveal the current number with animation
+        function revealNumber() {
+            numberDisplay.classList.add('reveal');
+            numberDisplay.textContent = gameState.currentNumber;
+            
+            setTimeout(() => {
+                numberDisplay.classList.remove('reveal');
+            }, 1000);
+        }
+
+        // Show result message
+        function showResultMessage(message, type) {
+            resultMessage.innerHTML = `<div class="p-4 rounded-lg ${
+                type === 'success' ? 'bg-green-100 text-green-800' :
+                type === 'error' ? 'bg-red-100 text-red-800' :
+                'bg-yellow-100 text-yellow-800'
+            }">${message}</div>`;
+            
+            resultMessage.classList.remove('hidden');
+            
+            // Hide message after some time
+            setTimeout(() => {
+                resultMessage.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Update difficulty based on slider
+        function updateDifficulty() {
+            gameState.maxRange = parseInt(difficultyRange.value);
+            updateRangeInfo();
+            generateNewNumber();
+        }
+
+        // Update range information text
+        function updateRangeInfo() {
+            rangeInfo.textContent = `Between 1 and ${gameState.maxRange}`;
+        }
+
+        // Update number history display
+        function updateNumberHistory() {
+            numberHistory.innerHTML = '';
+            
+            if (gameState.currentMode === 'trend') {
+                // In trend mode, show numbers as a continuous series
+                const trendContainer = document.createElement('div');
+                trendContainer.className = 'col-span-5 flex items-center overflow-x-auto py-2';
+                
+                gameState.numberHistory.forEach((num, index) => {
+                    const numEl = document.createElement('div');
+                    numEl.className = `flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center mr-2 ${
+                        index === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                    }`;
+                    numEl.textContent = num;
+                    trendContainer.appendChild(numEl);
+                    
+                    // Add connector line except for last item
+                    if (index < gameState.numberHistory.length - 1) {
+                        const connector = document.createElement('div');
+                        connector.className = 'w-4 h-0.5 bg-gray-300 mr-2 flex-shrink-0';
+                        trendContainer.appendChild(connector);
+                    }
+                });
+                
+                numberHistory.appendChild(trendContainer);
+            } else {
+                // In other modes, show as a grid
+                gameState.numberHistory.forEach(num => {
+                    const numEl = document.createElement('div');
+                    numEl.className = 'number-history-item bg-gray-200 rounded-lg p-2 text-center';
+                    numEl.textContent = num;
+                    numberHistory.appendChild(numEl);
+                });
+                
+                // Fill empty slots
+                for (let i = gameState.numberHistory.length; i < 5; i++) {
+                    const emptyEl = document.createElement('div');
+                    emptyEl.className = 'bg-gray-100 rounded-lg p-2 text-center text-gray-400';
+                    emptyEl.textContent = '-';
+                    numberHistory.appendChild(emptyEl);
+                }
+            }
+        }
+
+        // Change game mode
+        function changeGameMode(mode) {
+            // Update active button
+            modeBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            
+            gameState.currentMode = mode;
+            
+            // Adjust UI based on mode
+            if (mode === 'challenge') {
+                difficultyRange.value = '100'; // Reset to default for challenge mode
+                updateDifficulty();
+            } else if (mode === 'trend') {
+                // For trend mode, we might want more history
+                updateNumberHistory();
+            }
+            
+            // Generate new number for the mode
+            generateNewNumber();
+        }
+
+        // Update stats
+        function updateStats(guess, actual, isCorrect) {
+            gameState.stats.totalGuesses++;
+            
+            if (isCorrect) {
+                gameState.stats.correctGuesses++;
+                gameState.stats.currentStreak++;
+            } else {
+                gameState.stats.currentStreak = 0;
+            }
+            
+            gameState.stats.longestStreak = Math.max(
+                gameState.stats.longestStreak,
+                gameState.stats.currentStreak
+            );
+            
+            // Add to prediction history
+            gameState.stats.predictionHistory.unshift({
+                guess,
+                actual,
+                correct: isCorrect,
+                timestamp: new Date().toISOString(),
+                type: 'manual' // Regular user guess
+            });
+            
+            // Limit history length
+            if (gameState.stats.predictionHistory.length > 50) {
+                gameState.stats.predictionHistory.pop();
+            }
+        }
+
+        // Show stats screen
+        function showStats() {
+            gameDisplay.classList.add('hidden');
+            statsScreen.classList.remove('hidden');
+            screenshotScreen.classList.add('hidden');
+            
+            // Update stats display
+            totalGuessesEl.textContent = gameState.stats.totalGuesses;
+            correctGuessesEl.textContent = gameState.stats.correctGuesses;
+            
+            const accuracy = gameState.stats.totalGuesses > 0
+                ? Math.round((gameState.stats.correctGuesses / gameState.stats.totalGuesses) * 100)
+                : 0;
+            accuracyRateEl.textContent = `${accuracy}%`;
+            
+            currentStreakEl.textContent = gameState.stats.currentStreak;
+            
+            // Update screenshot prediction stats
+            totalScreenshotPredictionsEl.textContent = gameState.stats.screenshotPredictions.total;
+            
+            const screenshotAccuracy = gameState.stats.screenshotPredictions.total > 0
+                ? Math.round((gameState.stats.screenshotPredictions.correct / gameState.stats.screenshotPredictions.total) * 100)
+                : 0;
+            screenshotAccuracyRateEl.textContent = `${screenshotAccuracy}%`;
+            
+            // Generate guess distribution (basic implementation)
+            guessDistributionEl.innerHTML = '';
+            
+            // Group guesses by range
+            const rangeGroups = [
+                { name: "Very Low", count: 0 },
+                { name: "Low", count: 0 },
+                { name: "Medium", count: 0 },
+                { name: "High", count: 0 },
+                { name: "Very High", count: 0 }
+            ];
+            
+            gameState.stats.predictionHistory.forEach(pred => {
+                const diff = pred.guess - pred.actual;
+                const absDiff = Math.abs(diff);
+                const normalized = absDiff / pred.actual; // Relative difference
+                
+                if (normalized < 0.1) rangeGroups[2].count++;
+                else if (normalized < 0.3) {
+                    diff < 0 ? rangeGroups[1].count++ : rangeGroups[3].count++;
+                }
+                else {
+                    diff < 0 ? rangeGroups[0].count++ : rangeGroups[4].count++;
+                }
+            });
+            
+            // Get max count for scaling
+            const maxCount = Math.max(...rangeGroups.map(g => g.count));
+            
+            // Create distribution bars
+            rangeGroups.forEach(group => {
+                const width = maxCount > 0 ? (group.count / maxCount) * 100 : 0;
+                
+                const groupEl = document.createElement('div');
+                groupEl.className = 'flex items-center';
+                groupEl.innerHTML = `
+                    <div class="w-24 text-sm text-gray-600">${group.name}</div>
+                    <div class="flex-1 h-6 bg-gray-100 rounded overflow-hidden">
+                        <div class="h-full bg-blue-500" style="width: ${width}%"></div>
+                    </div>
+                    <div class="w-10 text-right text-sm font-medium">${group.count}</div>
+                `;
+                guessDistributionEl.appendChild(groupEl);
+            });
+            
+            // Show prediction history
+            predictionHistoryEl.innerHTML = '';
+            
+            // Take most recent 10 predictions
+            const recentPredictions = gameState.stats.predictionHistory.slice(0, 10);
+            
+            recentPredictions.forEach(pred => {
+                const date = new Date(pred.timestamp);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                const isScreenshot = pred.type === 'screenshot';
+                
+                const predEl = document.createElement('div');
+                predEl.className = `p-3 rounded-lg border ${
+                    pred.correct 
+                        ? 'border-green-200 bg-green-50' 
+                        : 'border-red-200 bg-red-50'
+                }`;
+                predEl.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-medium">Your guess: ${pred.guess}</span>
+                            <span class="mx-2">•</span>
+                            <span>Actual: ${pred.actual}</span>
+                            ${isScreenshot ? '<span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Screenshot</span>' : ''}
+                        </div>
+                        <div class="text-xs text-gray-500">${formattedDate}</div>
+                    </div>
+                `;
+                predictionHistoryEl.appendChild(predEl);
+            });
+            
+            // If no predictions yet
+            if (recentPredictions.length === 0) {
+                predictionHistoryEl.innerHTML = '<p class="text-gray-500">No prediction history yet. Start playing!</p>';
+            }
+        }
+
+        // Hide stats screen
+        function hideStats() {
+            statsScreen.classList.add('hidden');
+            gameDisplay.classList.remove('hidden');
+        }
+
+        // Show screenshot mode
+        function showScreenshotMode() {
+            gameDisplay.classList.add('hidden');
+            statsScreen.classList.add('hidden');
+            screenshotScreen.classList.remove('hidden');
+        }
+
+        // Hide screenshot mode
+        function hideScreenshotMode() {
+            screenshotScreen.classList.add('hidden');
+            gameDisplay.classList.remove('hidden');
+        }
+
+        // Handle screenshot upload
+        function handleScreenshotUpload(e) {
+            const file = e.target.files[0];
+            if (file && file.type.match('image.*')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    screenshotPreview.src = e.target.result;
+                    screenshotPreviewContainer.classList.remove('hidden');
+                    predictionResult.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Analyze the uploaded screenshot
+        function analyzeScreenshot() {
+            // In a real app, this would use image recognition/AI
+            // For now, we'll simulate analysis with a delay and "intelligent" prediction
+            
+            analyzeScreenshotBtn.disabled = true;
+            analyzeScreenshotBtn.innerHTML = `
+                <span class="inline-flex items-center">
+                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Analyzing...
+                </span>
+            `;
+            
+            setTimeout(() => {
+                // Generate a "predicted" number based on your game's history
+                let predictedNum;
+                
+                if (gameState.numberHistory.length > 0) {
+                    // Use the history to make a "smart" prediction
+                    // This simulates what an AI might do by finding patterns
+                    
+                    // If we have multiple numbers in history, look for patterns
+                    if (gameState.numberHistory.length >= 2) {
+                        const last = gameState.numberHistory[0];
+                        const secondLast = gameState.numberHistory[1];
+                        
+                        // Try to find a pattern:
+                        // If numbers are increasing, predict continued increase
+                        if (last > secondLast) {
+                            predictedNum = last + Math.floor((last - secondLast) * 0.8 + Math.random() * 5);
+                        } 
+                        // If numbers are decreasing, predict continued decrease
+                        else if (last < secondLast) {
+                            predictedNum = last - Math.floor((secondLast - last) * 0.7 + Math.random() * 5);
+                        }
+                        // If same, predict similar number with small variation
+                        else {
+                            predictedNum = last + Math.floor(Math.random() * 11 - 5);
+                        }
+                    } else {
+                        // With only one number, make a related prediction
+                        predictedNum = gameState.numberHistory[0] + Math.floor(Math.random() * 21 - 10);
+                    }
+                } else {
+                    // No history, make a reasonable guess based on the range
+                    predictedNum = Math.floor(Math.random() * gameState.maxRange) + 1;
+                }
+                
+                // Keep prediction within valid range
+                predictedNum = Math.max(1, Math.min(gameState.maxRange, predictedNum));
+                
+                // Show the prediction
+                predictedNumber.textContent = predictedNum;
+                
+                // Provide analysis text
+                let analysisText = '';
+                
+                if (gameState.numberHistory.length >= 2) {
+                    const pattern = gameState.numberHistory[0] > gameState.numberHistory[1] ? 'increasing' : 
+                                    gameState.numberHistory[0] < gameState.numberHistory[1] ? 'decreasing' : 
+                                    'stable';
+                    
+                    const trendStrength = gameState.numberHistory.length >= 3 ? 
+                        (Math.abs(gameState.numberHistory[0] - gameState.numberHistory[1]) > 
+                         Math.abs(gameState.numberHistory[1] - gameState.numberHistory[2])) ? 
+                            'strengthening' : 'weakening' : '';
+                    
+                    const confidence = Math.floor(50 + Math.random() * 40);
+                    
+                    analysisText = `
+                        <p class="mb-2">Based on our analysis, we detected a ${pattern} pattern ${trendStrength ? `that is ${trendStrength}` : ''}.</p>
+                        <p class="mb-2">Recent numbers show a trend with ${confidence}% confidence of prediction.</p>
+                        <p>Your screenshot suggests numbers with similar characteristics as seen in previous rounds.</p>
+                    `;
+                } else {
+                    analysisText = `
+                        <p class="mb-2">Based on our analysis of your screenshot, we've made a prediction with moderate confidence.</p>
+                        <p>For more accurate predictions, continue playing to establish patterns that our algorithm can detect.</p>
+                    `;
+                }
+                
+                predictionAnalysis.innerHTML = analysisText;
+                
+                // Show prediction result
+                predictionResult.classList.remove('hidden');
+                analyzeScreenshotBtn.disabled = false;
+                analyzeScreenshotBtn.textContent = 'Analyze Screenshot';
+                
+                // Store the predicted number for later use
+                gameState.screenshotPrediction = predictedNum;
+            }, 2000);
+        }
+
+        // Reset screenshot upload
+        function resetScreenshotUpload() {
+            screenshotUpload.value = '';
+            screenshotPreviewContainer.classList.add('hidden');
+            predictionResult.classList.add('hidden');
+        }
+
+        // Use the prediction from screenshot
+        function usePrediction() {
+            if (!gameState.screenshotPrediction) return;
+            
+            // Return to the main game with the predicted number filled in
+            userGuessInput.value = gameState.screenshotPrediction;
+            hideScreenshotMode();
+            
+            // Optionally, automatically submit the guess
+            // submitGuessBtn.click();
+        }
+
+        // Update screenshot prediction stats
+        function updateScreenshotStats(predicted, actual, isCorrect) {
+            gameState.stats.screenshotPredictions.total++;
+            
+            if (isCorrect) {
+                gameState.stats.screenshotPredictions.correct++;
+            }
+            
+            // Add to general prediction history with type = screenshot
+            gameState.stats.predictionHistory.unshift({
+                guess: predicted,
+                actual,
+                correct: isCorrect,
+                timestamp: new Date().toISOString(),
+                type: 'screenshot' // Mark as screenshot prediction
+            });
+            
+            // Limit history length
+            if (gameState.stats.predictionHistory.length > 50) {
+                gameState.stats.predictionHistory.pop();
+            }
+            
+            // Add to screenshot history
+            gameState.stats.screenshotPredictions.history.unshift({
+                prediction: predicted,
+                actual,
+                correct: isCorrect,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Limit history length
+            if (gameState.stats.screenshotPredictions.history.length > 20) {
+                gameState.stats.screenshotPredictions.history.pop();
+            }
+        }
+
+        // Save game state to localStorage
+        function saveGameState() {
+            try {
+                localStorage.setItem('wingoGameState', JSON.stringify({
+                    numberHistory: gameState.numberHistory,
+                    stats: gameState.stats
+                }));
+            } catch (e) {
+                console.error('Failed to save game state:', e);
+            }
+        }
+
+        // Load game state from localStorage
+        function loadGameState() {
+            try {
+                const savedState = localStorage.getItem('wingoGameState');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    gameState.numberHistory = parsedState.numberHistory || [];
+                    gameState.stats = parsedState.stats || {
+                        totalGuesses: 0,
+                        correctGuesses: 0,
+                        currentStreak: 0,
+                        longestStreak: 0,
+                        predictionHistory: [],
+                        screenshotPredictions: {
+                            total: 0,
+                            correct: 0,
+                            history: []
+                        }
+                    };
+                    
+                    // Ensure the screenshotPredictions property exists
+                    if (!gameState.stats.screenshotPredictions) {
+                        gameState.stats.screenshotPredictions = {
+                            total: 0,
+                            correct: 0,
+                            history: []
+                        };
+                    }
+                    
+                    updateNumberHistory();
+                }
+            } catch (e) {
+                console.error('Failed to load game state:', e);
+            }
+        }
+
+        // Initialize the game when the page loads
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
